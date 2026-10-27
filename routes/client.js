@@ -15,10 +15,9 @@ const userService = require('../services/user.service');
 const financialService = require('../services/financial.service');
 
 // Utils
-const { formatDate } = require('../utils/formatters');
 const { validateId, validateDateNotFuture, validateRequiredFields, validateAmount, validatePeriod } = require('../utils/validators');
-const { DATE_CONFIG, TRANSACTION_CATEGORIES, STATUS } = require('../services/constants');
-const { buildReportFilters } = require('../utils/reportHelpers');
+const { DATE_CONFIG, TRANSACTION_CATEGORIES, STATUS, TRANSACTION_TYPES } = require('../services/constants');
+const { buildReportFilters, buildTimeframeOptions } = require('../utils/reportHelpers');
 const { filterByStatus } = require('../utils/statusFilter');
 
 const router = express.Router();
@@ -134,20 +133,27 @@ router.get('/transactions/:period', getTransactions, asyncHandler(async (req, re
 }));
 
 router.post('/transactions/add', asyncHandler(async (req, res) => {
-  const { amount, type, date, description, category } = req.body;
+  const { amount, type, date, description, category, reimburse } = req.body;
 
   validateRequiredFields({ amount, type, date, category });
   validateDateNotFuture(date);
   const validAmount = validateAmount(amount);
 
-  await transactionService.createTransaction({
+  const transaction = {
     accountId: req.user.account,
     transactionTypeId: type,
     amount: validAmount,
     date,
     description: description || '',
     category
-  });
+  };
+
+  // Reimburse applies to withdrawals only: also record a matching deposit
+  if (reimburse && Number(type) === TRANSACTION_TYPES.WITHDRAWAL) {
+    await transactionService.createReimbursedWithdrawal(transaction);
+  } else {
+    await transactionService.createTransaction(transaction);
+  }
 
   res.redirect('/client/transactions');
 }));
@@ -333,6 +339,7 @@ router.get('/reports', asyncHandler(async (req, res) => {
     user: req.user,
     reportData,
     filters: req.query,
+    timeframeOptions: buildTimeframeOptions(req.query.timeframe),
     categories: TRANSACTION_CATEGORIES
   });
 }));

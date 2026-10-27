@@ -2,6 +2,8 @@
  * Validation utility functions
  */
 
+const { isFutureDate } = require('./dates');
+
 /**
  * Validate and parse integer ID
  * @param {any} value - Value to validate
@@ -26,12 +28,7 @@ function validateId(value, fieldName = 'ID') {
  * @throws {Error} If date is in the future
  */
 function validateDateNotFuture(date) {
-  const transactionDate = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  transactionDate.setHours(0, 0, 0, 0);
-
-  if (transactionDate > today) {
+  if (isFutureDate(date)) {
     const error = new Error('Date cannot be in the future');
     error.status = 400;
     throw error;

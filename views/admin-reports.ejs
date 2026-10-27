@@ -92,11 +92,9 @@
                 <div class="col-md-3">
                   <label for="timeframe" class="form-label">Timeframe</label>
                   <select class="form-select" id="timeframe" name="timeframe">
-                    <option value="all" <%= filters.timeframe === 'all' ? 'selected' : '' %>>All Time</option>
-                    <option value="2025-09" <%= filters.timeframe === '2025-09' ? 'selected' : '' %>>September 2025</option>
-                    <option value="2025-10" <%= filters.timeframe === '2025-10' ? 'selected' : '' %>>October 2025</option>
-                    <option value="2025-11" <%= filters.timeframe === '2025-11' ? 'selected' : '' %>>November 2025</option>
-                    <option value="custom" <%= filters.timeframe === 'custom' ? 'selected' : '' %>>Custom Range</option>
+                    <% timeframeOptions.forEach(opt => { %>
+                      <option value="<%= opt.value %>" <%= filters.timeframe === opt.value ? 'selected' : '' %>><%= opt.label %></option>
+                    <% }) %>
                   </select>
                 </div>
 

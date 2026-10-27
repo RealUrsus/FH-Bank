@@ -3,118 +3,75 @@ const loanService = require('../services/loan.service');
 const gicService = require('../services/gic.service');
 
 /**
- * Disburse approved loans on their start date
+ * Run an action for each item, isolating failures, and log a summary.
+ * @param {string} label - Task description for the logs
+ * @param {Array} items - Items to process
+ * @param {Function} action - async (item) => message string if processed, falsy if not applicable
+ * @returns {Promise<number>} Number of items processed
  */
-async function disburseLoanFunds() {
-  console.log('[Daily Task] Disbursing loan funds for loans reaching start date...');
-  const activeLoans = await loanService.getActiveLoans();
-  let disbursedCount = 0;
+async function forEachActive(label, items, action) {
+  console.log(`[Daily Task] ${label}...`);
+  let processed = 0;
 
-  for (const loan of activeLoans) {
+  for (const item of items) {
     try {
-      const wasDisbursed = await loanService.disburseLoan(loan.AccountID);
-      if (wasDisbursed) {
-        disbursedCount++;
-        console.log(`Loan ${loan.AccountID} funds disbursed to chequing account`);
+      const message = await action(item);
+      if (message) {
+        processed++;
+        console.log(message);
       }
     } catch (error) {
-      console.error(`Error disbursing loan ${loan.AccountID}:`, error);
+      console.error(`Error (${label}) for account ${item.AccountID}:`, error);
     }
   }
 
-  console.log(`[Daily Task] Disbursed ${disbursedCount} loan(s)`);
+  console.log(`[Daily Task] ${label}: ${processed} processed`);
+  return processed;
 }
 
 /**
- * Process loan interest payments based on payment frequency (monthly or annual)
+ * Disburse approved loans on their start date
+ */
+async function disburseLoanFunds() {
+  const loans = await loanService.getActiveLoans();
+  return forEachActive('Disbursing loan funds', loans, async ({ AccountID }) =>
+    await loanService.disburseLoan(AccountID) && `Loan ${AccountID} funds disbursed to chequing account`);
+}
+
+/**
+ * Process loan interest payments based on payment frequency
  */
 async function processLoanInterest() {
-  console.log('[Daily Task] Processing loan interest payments...');
-  const activeLoans = await loanService.getActiveLoans();
-  let processedCount = 0;
-
-  for (const loan of activeLoans) {
-    try {
-      const transactionId = await loanService.processLoanInterest(loan.AccountID);
-      if (transactionId) {
-        processedCount++;
-        console.log(`Interest payment processed for loan ${loan.AccountID}`);
-      }
-    } catch (error) {
-      console.error(`Error processing interest for loan ${loan.AccountID}:`, error);
-    }
-  }
-
-  console.log(`[Daily Task] Processed ${processedCount} loan interest payments`);
+  const loans = await loanService.getActiveLoans();
+  return forEachActive('Processing loan interest payments', loans, async ({ AccountID }) =>
+    await loanService.processLoanInterest(AccountID) && `Interest payment processed for loan ${AccountID}`);
 }
 
 /**
  * Check for paid off loans and update their status
  */
 async function checkLoanPayoffs() {
-  console.log('[Daily Task] Checking loan payoffs...');
-  const activeLoans = await loanService.getActiveLoans();
-  let paidOffCount = 0;
-
-  for (const loan of activeLoans) {
-    try {
-      const wasPaidOff = await loanService.checkLoanPayoff(loan.AccountID);
-      if (wasPaidOff) {
-        paidOffCount++;
-        console.log(`Loan ${loan.AccountID} marked as paid off`);
-      }
-    } catch (error) {
-      console.error(`Error checking payoff for loan ${loan.AccountID}:`, error);
-    }
-  }
-
-  console.log(`[Daily Task] Marked ${paidOffCount} loans as paid off`);
+  const loans = await loanService.getActiveLoans();
+  return forEachActive('Checking loan payoffs', loans, async ({ AccountID }) =>
+    await loanService.checkLoanPayoff(AccountID) && `Loan ${AccountID} marked as paid off`);
 }
 
 /**
  * Check for loan maturity, log to file, and withdraw remaining balance from checking
  */
 async function checkLoanMaturity() {
-  console.log('[Daily Task] Checking loan maturity...');
-  const activeLoans = await loanService.getActiveLoans();
-  let maturedCount = 0;
-
-  for (const loan of activeLoans) {
-    try {
-      const wasProcessed = await loanService.checkLoanMaturity(loan.AccountID);
-      if (wasProcessed) {
-        maturedCount++;
-        console.log(`Loan ${loan.AccountID} has matured - logged and final payment withdrawn`);
-      }
-    } catch (error) {
-      console.error(`Error processing maturity for loan ${loan.AccountID}:`, error);
-    }
-  }
-
-  console.log(`[Daily Task] Processed ${maturedCount} matured loans`);
+  const loans = await loanService.getActiveLoans();
+  return forEachActive('Checking loan maturity', loans, async ({ AccountID }) =>
+    await loanService.checkLoanMaturity(AccountID) && `Loan ${AccountID} has matured - logged and final payment withdrawn`);
 }
 
 /**
  * Check for GIC maturity and process accordingly
  */
 async function checkGICMaturity() {
-  console.log('[Daily Task] Checking GIC maturity...');
-  const activeGICs = await gicService.getActiveGICs();
-  let maturedCount = 0;
-
-  for (const gic of activeGICs) {
-    try {
-      const wasMatured = await gicService.matureGIC(gic.AccountID);
-      if (wasMatured) {
-        maturedCount++;
-        console.log(`GIC ${gic.AccountID} has matured and funds transferred`);
-      }
-    } catch (error) {
-      console.error(`Error maturing GIC ${gic.AccountID}:`, error);
-    }
-  }
-
-  console.log(`[Daily Task] Matured ${maturedCount} GICs`);
+  const gics = await gicService.getActiveGICs();
+  return forEachActive('Checking GIC maturity', gics, async ({ AccountID }) =>
+    await gicService.matureGIC(AccountID) && `GIC ${AccountID} has matured and funds transferred`);
 }
 
 /**

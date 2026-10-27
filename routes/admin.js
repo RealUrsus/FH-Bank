@@ -15,8 +15,7 @@ const agreementService = require('../services/agreement.service');
 // Utils
 const { validateId, validateRequiredFields, sanitizeHtml } = require('../utils/validators');
 const { TRANSACTION_CATEGORIES, ROLES } = require('../services/constants');
-const { buildReportFilters } = require('../utils/reportHelpers');
-const { formatDate } = require('../utils/formatters');
+const { buildReportFilters, buildTimeframeOptions } = require('../utils/reportHelpers');
 
 const router = express.Router();
 
@@ -414,6 +413,7 @@ router.get('/reports', asyncHandler(async (req, res) => {
     selectedClient,
     reportData,
     filters: req.query,
+    timeframeOptions: buildTimeframeOptions(req.query.timeframe),
     categories: TRANSACTION_CATEGORIES
   });
 }));

@@ -9,7 +9,7 @@ const transactionService = require('./transaction.service');
 const financialService = require('./financial.service');
 const maturityLogger = require('./maturity-logger.service');
 const { ACCOUNT_TYPES, STATUS, TRANSACTION_TYPES } = require('./constants');
-const { formatDate } = require('../utils/formatters');
+const { todayString, daysUntil } = require('../utils/dates');
 
 const gicService = {
   /**
@@ -184,7 +184,7 @@ const gicService = {
         interestRate: product.InterestRate,
         principalAmount: amount,
         term: product.Term,
-        startDate: formatDate(new Date()),
+        startDate: todayString(),
         statusId: STATUS.ACTIVE,
         balance: amount,
         productId: productId
@@ -195,7 +195,7 @@ const gicService = {
         accountId: chequingAccountId,
         transactionTypeId: TRANSACTION_TYPES.WITHDRAWAL,
         amount,
-        date: formatDate(new Date()),
+        date: todayString(),
         description: `GIC Investment - ${product.ProductName}`,
         statusId: STATUS.APPROVED
       });
@@ -218,7 +218,7 @@ const gicService = {
       principal: amount,
       rate: product.InterestRate,
       term: product.Term,
-      startDate: formatDate(new Date()),
+      startDate: todayString(),
       chequingAccountId
     });
 
@@ -329,7 +329,7 @@ const gicService = {
 
     for (const gic of gics) {
       const maturityDate = financialService.calculateMaturityDate(gic.StartDate, gic.Term);
-      const daysUntilMaturity = Math.ceil((new Date(maturityDate) - new Date()) / (1000 * 60 * 60 * 24));
+      const daysUntilMaturity = daysUntil(maturityDate);
 
       if (daysUntilMaturity >= 0 && daysUntilMaturity <= days) {
         maturingGICs.push({

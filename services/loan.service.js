@@ -8,6 +8,7 @@ const accountService = require('./account.service');
 const transactionService = require('./transaction.service');
 const financialService = require('./financial.service');
 const maturityLogger = require('./maturity-logger.service');
+const { todayString, yesterdayString, parseLocalDate, daysUntil } = require('../utils/dates');
 const { ACCOUNT_TYPES, STATUS, TRANSACTION_TYPES, PAYMENT_FREQUENCIES, FINANCIAL_CONFIG } = require('./constants');
 
 const loanService = {
@@ -108,12 +109,7 @@ const loanService = {
 
     // Server-side validation: Reject past dates (today is allowed)
     // Use string comparison to avoid timezone issues
-    const today = new Date();
-    const todayString = today.getFullYear() + '-' +
-                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                       String(today.getDate()).padStart(2, '0');
-
-    if (startDate < todayString) {
+    if (startDate < todayString()) {
       const error = new Error('Loan start date cannot be in the past');
       error.status = 400;
       throw error;
@@ -257,17 +253,8 @@ const loanService = {
     }
 
     // EOD runs at midnight (start of next day), so check if yesterday was the start date
-    // Use date strings to avoid timezone issues
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const yesterdayString = yesterday.getFullYear() + '-' +
-                           String(yesterday.getMonth() + 1).padStart(2, '0') + '-' +
-                           String(yesterday.getDate()).padStart(2, '0');
-
     // Compare date strings (loan.StartDate is stored as 'YYYY-MM-DD')
-    if (loan.StartDate !== yesterdayString) {
+    if (loan.StartDate !== yesterdayString()) {
       return false;
     }
 
@@ -308,14 +295,7 @@ const loanService = {
 
     const now = new Date();
 
-    // Parse YYYY-MM-DD date strings as local dates (not UTC) to avoid timezone issues
-    let startDate;
-    if (typeof loan.StartDate === 'string' && loan.StartDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = loan.StartDate.split('-').map(Number);
-      startDate = new Date(year, month - 1, day); // month is 0-indexed
-    } else {
-      startDate = new Date(loan.StartDate);
-    }
+    const startDate = parseLocalDate(loan.StartDate);
 
     // Calculate days elapsed since loan start
     const daysElapsed = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
@@ -463,7 +443,7 @@ const loanService = {
 
     for (const loan of loans) {
       const maturityDate = financialService.calculateMaturityDate(loan.StartDate, loan.Term);
-      const daysUntilMaturity = Math.ceil((new Date(maturityDate) - new Date()) / (1000 * 60 * 60 * 24));
+      const daysUntilMaturity = daysUntil(maturityDate);
 
       if (daysUntilMaturity >= 0 && daysUntilMaturity <= days) {
         maturingLoans.push({

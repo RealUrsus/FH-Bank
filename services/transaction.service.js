@@ -6,7 +6,7 @@
 const crypto = require('crypto');
 const db = require('./database.service');
 const { TRANSACTION_TYPES, STATUS } = require('./constants');
-const { formatDate } = require('../utils/formatters');
+const { formatDate, todayString, addDays } = require('../utils/dates');
 
 const transactionService = {
   /**
@@ -38,6 +38,28 @@ const transactionService = {
   },
 
   /**
+   * Create a withdrawal plus an offsetting deposit (same amount, date and category)
+   * in one atomic block. The deposit description is "Reimburse" + original description.
+   * @param {object} transactionData - Withdrawal data (see createTransaction)
+   * @returns {Promise<{withdrawalId: number, depositId: number}>} New transaction IDs
+   */
+  async createReimbursedWithdrawal(transactionData) {
+    const description = (transactionData.description || '').trim();
+    return await db.transaction(async () => {
+      const withdrawalId = await this.createTransaction({
+        ...transactionData,
+        transactionTypeId: TRANSACTION_TYPES.WITHDRAWAL
+      });
+      const depositId = await this.createTransaction({
+        ...transactionData,
+        transactionTypeId: TRANSACTION_TYPES.DEPOSIT,
+        description: description ? `Reimburse: ${description}` : 'Reimburse'
+      });
+      return { withdrawalId, depositId };
+    });
+  },
+
+  /**
    * Create a system-generated transaction (e.g., interest accrual)
    * These are automatically approved
    * @param {object} transactionData - Transaction data
@@ -55,7 +77,7 @@ const transactionService = {
       accountId,
       transactionTypeId,
       amount,
-      date: formatDate(new Date()),
+      date: todayString(),
       description: `[SYSTEM] ${description}`,
       statusId: STATUS.APPROVED
     });
@@ -99,8 +121,8 @@ const transactionService = {
    * @returns {Promise<Array>} Array of transactions
    */
   async getTransactionsByPeriod(accountId, days) {
-    const endDate = formatDate(new Date());
-    const startDate = formatDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+    const endDate = todayString();
+    const startDate = formatDate(addDays(new Date(), -days));
 
     return await this.getTransactionsByDateRange(accountId, startDate, endDate);
   },
@@ -158,7 +180,7 @@ const transactionService = {
 
     // Generate unique transfer ID using cryptographically secure random bytes
     const transferId = crypto.randomBytes(8).toString('hex');
-    const date = formatDate(new Date());
+    const date = todayString();
 
     // Create both transactions in a transaction block for atomicity
     await db.transaction(async () => {

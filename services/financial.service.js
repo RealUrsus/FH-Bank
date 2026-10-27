@@ -4,6 +4,7 @@
  */
 
 const { FINANCIAL_CONFIG } = require('./constants');
+const { parseLocalDate, startOfDay, addDays } = require('../utils/dates');
 
 const financialService = {
   /**
@@ -42,8 +43,8 @@ const financialService = {
    * @returns {number} Number of days
    */
   calculateDaysBetween(startDate, endDate) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
     const diffTime = Math.abs(end - start);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   },
@@ -55,16 +56,7 @@ const financialService = {
    * @returns {Date} Maturity date
    */
   calculateMaturityDate(startDate, termMonths) {
-    let maturity;
-
-    // Parse YYYY-MM-DD date strings as local dates (not UTC)
-    if (typeof startDate === 'string' && startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = startDate.split('-').map(Number);
-      maturity = new Date(year, month - 1, day); // month is 0-indexed
-    } else {
-      maturity = new Date(startDate);
-    }
-
+    const maturity = parseLocalDate(startDate);
     maturity.setMonth(maturity.getMonth() + termMonths);
     return maturity;
   },
@@ -77,14 +69,9 @@ const financialService = {
    */
   hasReachedMaturity(startDate, termMonths) {
     const maturityDate = this.calculateMaturityDate(startDate, termMonths);
-    const today = new Date();
 
-    // Normalize both dates to midnight for date-only comparison
-    // This ensures maturity checks work correctly regardless of time of day
-    maturityDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    return today >= maturityDate;
+    // Date-only comparison, regardless of time of day
+    return startOfDay(new Date()) >= startOfDay(maturityDate);
   },
 
   /**
@@ -158,9 +145,8 @@ const financialService = {
    * @returns {number} Accrued interest amount
    */
   calculateAccruedInterestToYesterday(principal, interestRate, startDate) {
-    const start = new Date(startDate);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    const start = parseLocalDate(startDate);
+    const yesterday = addDays(new Date(), -1);
     const daysElapsed = Math.max(0, Math.floor((yesterday - start) / (1000 * 60 * 60 * 24)));
     const monthsElapsed = daysElapsed / FINANCIAL_CONFIG.AVG_DAYS_PER_MONTH;
     return (principal * interestRate * (monthsElapsed / 12)) / 100;

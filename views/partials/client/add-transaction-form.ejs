@@ -38,6 +38,10 @@
             <label for="description" class="form-label">Description:</label>
             <textarea class="form-control" id="description" name="description" placeholder="Add additional details about this transaction"></textarea>
           </div>
+          <div class="mb-3 form-check" id="reimburse-group" style="display: none;">
+            <input type="checkbox" class="form-check-input" id="reimburse" name="reimburse" value="1">
+            <label for="reimburse" class="form-check-label">Reimburse</label>
+          </div>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         </form>
       </div>
@@ -53,6 +57,16 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('addTransaction');
+
+  // Reimburse only applies to withdrawals
+  const typeField = document.getElementById('type');
+  const reimburseGroup = document.getElementById('reimburse-group');
+  const reimburseBox = document.getElementById('reimburse');
+  typeField.addEventListener('change', function () {
+    const isWithdrawal = typeField.value === '2';
+    reimburseGroup.style.display = isWithdrawal ? '' : 'none';
+    if (!isWithdrawal) reimburseBox.checked = false;
+  });
   form.addEventListener('submit', function (event) {
     event.preventDefault(); // Prevent default form submission
 

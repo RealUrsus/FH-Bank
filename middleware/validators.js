@@ -4,6 +4,7 @@
  */
 
 const { body, param, query, validationResult } = require('express-validator');
+const { isFutureDate } = require('../utils/dates');
 
 /**
  * Middleware to check validation results and return errors
@@ -32,11 +33,7 @@ const validateTransaction = [
     .notEmpty().withMessage('Date is required')
     .isDate().withMessage('Invalid date format')
     .custom((value) => {
-      const transactionDate = new Date(value);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      transactionDate.setHours(0, 0, 0, 0);
-      if (transactionDate > today) {
+      if (isFutureDate(value)) {
         throw new Error('Date cannot be in the future');
       }
       return true;
